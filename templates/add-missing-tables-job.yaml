@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-add-missing-tables
+  namespace: {{ .Values.global.namespace }}
+  annotations:
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-weight": "6"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: add-tables
+          image: postgres:16-alpine
+          env:
+            - name: PGHOST
+              value: {{ .Release.Name }}-db
+            - name: PGPORT
+              value: "{{ .Values.postgres.port }}"
+            - name: PGDATABASE
+              value: {{ .Values.postgres.database }}
+            - name: PGUSER
+              value: {{ .Values.postgres.user }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-credentials
+                  key: DB_PASSWORD
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for database to be ready..."
+              until pg_isready -h $PGHOST -p $PGPORT -U $PGUSER; do
+                echo "Database not ready, waiting..."
+                sleep 2
+              done
+              echo "Database ready, adding missing tables..."
+              psql -v ON_ERROR_STOP=1 -f /sql/add-tables.sql
+              echo "Tables added successfully!"
+          volumeMounts:
+            - name: sql
+              mountPath: /sql
+      volumes:
+        - name: sql
+          configMap:
+            name: {{ .Release.Name }}-add-missing-tables

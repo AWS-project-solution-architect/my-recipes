@@ -1,0 +1,76 @@
+# Environment-specific values for EU Central 1 (Frankfurt)
+
+global:
+  namespace: my-apps
+
+# Backend configuration
+backend:
+  replicaCount: 2
+  image:
+    repository: 430842105273.dkr.ecr.eu-central-1.amazonaws.com/my-recipes-backend
+    tag: "v3"
+  
+  ingress:
+    className: "alb"
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      # Add your ACM certificate ARN for eu-central-1
+      # alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:eu-central-1:..."
+    hosts:
+      - host: api-my-recipes.aws-dvirlabs.com
+        paths:
+          - path: /
+            pathType: Prefix
+
+# Frontend configuration
+frontend:
+  replicaCount: 2
+  image:
+    repository: 430842105273.dkr.ecr.eu-central-1.amazonaws.com/my-recipes-frontend
+    tag: "latest"
+  
+  env:
+    API_BASE: "https://api-my-recipes.aws-dvirlabs.com"
+  
+  ingress:
+    className: "alb"
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      # Add your ACM certificate ARN for eu-central-1
+      # alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:eu-central-1:..."
+    hosts:
+      - host: my-recipes.aws-dvirlabs.com
+        paths:
+          - path: /
+            pathType: Prefix
+  
+  externalUrl: "https://my-recipes.aws-dvirlabs.com"
+
+# PostgreSQL configuration
+postgres:
+  enabled: false  # Using RDS
+  
+  persistence:
+    storageClass: "gp3"
+    size: 20Gi
+
+# OAuth Configuration - Using External Secrets from AWS Secrets Manager
+# All sensitive values are managed through ExternalSecret resources
+
+# Email Configuration - Using External Secrets from AWS Secrets Manager
+# All sensitive values are managed through ExternalSecret resources
+
+# S3 Backup Configuration
+s3:
+  endpoint: "https://s3.eu-central-1.amazonaws.com"
+  bucketName: "my-recipes-backups-eu-central-1"
+  region: "eu-central-1"
+  backupInterval: "weekly"
+  # accessKey and secretKey are managed through External Secrets
+
+# Admin User Configuration - Using External Secrets from AWS Secrets Manager
+# All sensitive values are managed through ExternalSecret resources

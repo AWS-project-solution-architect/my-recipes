@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-db-migration
+  namespace: {{ .Values.global.namespace }}
+data:
+  migrate.sql: |
+    -- Add made_by column to recipes if it doesn't exist
+    DO $$ 
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'recipes' AND column_name = 'made_by'
+        ) THEN
+            ALTER TABLE recipes ADD COLUMN made_by TEXT;
+        END IF;
+    END $$;
+
+    -- Create index if it doesn't exist
+    CREATE INDEX IF NOT EXISTS idx_recipes_made_by ON recipes (made_by);
+
+    -- Add is_admin column to users if it doesn't exist
+    DO $$ 
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'is_admin'
+        ) THEN
+            ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE;
+        END IF;
+    END $$;
+
+    -- Add auth_provider column to users if it doesn't exist
+    DO $$ 
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'auth_provider'
+        ) THEN
+            ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'local';
+        END IF;
+    END $$;
+
+    -- Verify recipes schema
+    SELECT column_name, data_type 
+    FROM information_schema.columns 
+    WHERE table_name = 'recipes' 
+    ORDER BY ordinal_position;
+
+    -- Verify users schema
+    SELECT column_name, data_type 
+    FROM information_schema.columns 
+    WHERE table_name = 'users' 
+    ORDER BY ordinal_position;

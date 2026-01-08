@@ -1,0 +1,134 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-db-schema
+  namespace: {{ .Values.global.namespace }}
+data:
+  schema.sql: |
+    -- Create users table
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        first_name TEXT,
+        last_name TEXT,
+        display_name TEXT NOT NULL,
+        is_admin BOOLEAN DEFAULT FALSE,
+        auth_provider TEXT DEFAULT 'local',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
+
+    -- Create recipes table (matching backend schema with TEXT[] arrays)
+    CREATE TABLE IF NOT EXISTS recipes (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        meal_type TEXT NOT NULL,               -- breakfast / lunch / dinner / snack
+        time_minutes INTEGER NOT NULL,
+        tags TEXT[] NOT NULL DEFAULT '{}',     -- {"מהיר", "בריא"}
+        ingredients TEXT[] NOT NULL DEFAULT '{}', -- {"ביצה", "עגבניה", "מלח"}
+        steps TEXT[] NOT NULL DEFAULT '{}',    -- {"לחתוך", "לבשל", ...}
+        image TEXT,                            -- Base64-encoded image or image URL
+        made_by TEXT,                          -- Person who created this recipe version
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,  -- Recipe owner
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Indexes for filters
+    CREATE INDEX IF NOT EXISTS idx_recipes_meal_type
+        ON recipes (meal_type);
+
+    CREATE INDEX IF NOT EXISTS idx_recipes_time_minutes
+        ON recipes (time_minutes);
+
+    CREATE INDEX IF NOT EXISTS idx_recipes_made_by
+        ON recipes (made_by);
+
+    CREATE INDEX IF NOT EXISTS idx_recipes_user_id
+        ON recipes (user_id);
+
+    -- Add new columns to existing users table
+    DO $$ 
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'first_name'
+        ) THEN
+            ALTER TABLE users ADD COLUMN first_name TEXT;
+        END IF;
+    END $$;
+
+    DO $$ 
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'last_name'
+        ) THEN
+            ALTER TABLE users ADD COLUMN last_name TEXT;
+        END IF;
+    END $$;
+
+    DO $$ 
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'display_name'
+        ) THEN
+            ALTER TABLE users ADD COLUMN display_name TEXT;
+            -- Set display_name to username for existing users
+            UPDATE users SET display_name = username WHERE display_name IS NULL;
+            ALTER TABLE users ALTER COLUMN display_name SET NOT NULL;
+        END IF;
+    END $$;
+
+    DO $$ 
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'is_admin'
+        ) THEN
+            ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE;
+        END IF;
+    END $$;
+
+    -- Create grocery lists table
+    CREATE TABLE IF NOT EXISTS grocery_lists (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        items TEXT[] NOT NULL DEFAULT '{}',
+        owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        is_pinned BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Create grocery list shares table
+    CREATE TABLE IF NOT EXISTS grocery_list_shares (
+        id SERIAL PRIMARY KEY,
+        list_id INTEGER NOT NULL REFERENCES grocery_lists(id) ON DELETE CASCADE,
+        shared_with_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        can_edit BOOLEAN DEFAULT FALSE,
+        shared_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(list_id, shared_with_user_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_grocery_lists_owner_id ON grocery_lists (owner_id);
+    CREATE INDEX IF NOT EXISTS idx_grocery_list_shares_list_id ON grocery_list_shares (list_id);
+    CREATE INDEX IF NOT EXISTS idx_grocery_list_shares_user_id ON grocery_list_shares (shared_with_user_id);
+
+    -- Create notifications table
+    CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        message TEXT NOT NULL,
+        related_id INTEGER,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications (user_id);
+    CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications (is_read);

@@ -1,0 +1,39 @@
+{{- if not .Values.database }}
+{{- /* Only deploy in-cluster PostgreSQL services if external database is not configured */ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-{{ .Values.postgres.name }}-headless
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Release.Name }}-{{ .Values.postgres.name }}
+    component: database
+spec:
+  clusterIP: None
+  selector:
+    app: {{ .Release.Name }}-{{ .Values.postgres.name }}
+  ports:
+    - name: postgres
+      port: {{ .Values.postgres.port }}
+      targetPort: {{ .Values.postgres.port }}
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-{{ .Values.postgres.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Release.Name }}-{{ .Values.postgres.name }}
+    component: database
+spec:
+  type: {{ .Values.postgres.service.type }}
+  selector:
+    app: {{ .Release.Name }}-{{ .Values.postgres.name }}
+  ports:
+    - name: postgres
+      port: {{ .Values.postgres.service.port }}
+      targetPort: {{ .Values.postgres.port }}
+      protocol: TCP
+{{- end }}
+

@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-admin-init
+  namespace: {{ .Values.global.namespace }}
+data:
+  create-admin.py: |
+    #!/usr/bin/env python3
+    import os
+    import sys
+    import psycopg2
+    import bcrypt
+    from time import sleep
+
+    def wait_for_db():
+        """Wait for database to be ready"""
+        max_retries = 30
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                conn = psycopg2.connect(
+                    host=os.environ['DB_HOST'],
+                    port=os.environ['DB_PORT'],
+                    database=os.environ['DB_NAME'],
+                    user=os.environ['DB_USER'],
+                    password=os.environ['DB_PASSWORD']
+                )
+                conn.close()
+                print("✓ Database is ready")
+                return True
+            except Exception as e:
+                retry_count += 1
+                print(f"Waiting for database... ({retry_count}/{max_retries})")
+                sleep(2)
+        
+        print("✗ Database connection timeout")
+        return False
+
+    def create_admin_user():
+        """Create admin user if not exists"""
+        try:
+            # Hash the password
+            password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+            password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            
+            # Connect to database
+            conn = psycopg2.connect(
+                host=os.environ['DB_HOST'],
+                port=os.environ['DB_PORT'],
+                database=os.environ['DB_NAME'],
+                user=os.environ['DB_USER'],
+                password=os.environ['DB_PASSWORD']
+            )
+            cur = conn.cursor()
+            
+            # Insert admin user
+            cur.execute("""
+                INSERT INTO users (username, email, password_hash, first_name, last_name, display_name, is_admin)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (username) DO UPDATE SET
+                    email = EXCLUDED.email,
+                    password_hash = EXCLUDED.password_hash,
+                    first_name = EXCLUDED.first_name,
+                    last_name = EXCLUDED.last_name,
+                    display_name = EXCLUDED.display_name,
+                    is_admin = EXCLUDED.is_admin
+            """, (
+                os.environ.get('ADMIN_USERNAME', 'admin'),
+                os.environ.get('ADMIN_EMAIL', 'admin@myrecipes.local'),
+                password_hash,
+                os.environ.get('ADMIN_FIRST_NAME', 'Admin'),
+                os.environ.get('ADMIN_LAST_NAME', 'User'),
+                os.environ.get('ADMIN_DISPLAY_NAME', 'מנהל'),
+                True
+            ))
+            
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            print(f"✓ Admin user '{os.environ.get('ADMIN_USERNAME', 'admin')}' created/updated successfully")
+            return True
+            
+        except Exception as e:
+            print(f"✗ Error creating admin user: {e}")
+            return False
+
+    if __name__ == "__main__":
+        print("Starting admin user initialization...")
+        
+        if not wait_for_db():
+            sys.exit(1)
+        
+        if not create_admin_user():
+            sys.exit(1)
+        
+        print("✓ Admin user initialization completed")
+        sys.exit(0)

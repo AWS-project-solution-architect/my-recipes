@@ -1,0 +1,14 @@
+apiVersion: v2
+name: my-recipes
+description: Complete recipe management application with PostgreSQL, FastAPI backend, and React frontend
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - recipes
+  - fastapi
+  - react
+  - postgresql
+maintainers:
+  - name: Development Team
+

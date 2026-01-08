@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: my-recipes
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: region
+              operator: In
+              values:
+                - eu-central-1
+                - us-east-1
+
+  template:
+    metadata:
+      name: my-recipes-{{name}}
+    spec:
+      project: default
+
+      source:
+        repoURL: https://github.com/<YOUR-ORG>/my-recipes.git
+        targetRevision: main
+        path: my-recipes-chart
+        helm:
+          valueFiles:
+            - ../envs/{{metadata.labels.region}}.yaml
+
+      destination:
+        server: "{{server}}"
+        namespace: my-apps
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
