@@ -21,7 +21,7 @@ spec:
 
       source:
         repoURL: https://github.com/AWS-project-solution-architect/my-recipes.git
-        targetRevision: clean-secrets
+        targetRevision: main
         path: .  # Helm chart is at the root
         helm:
           valueFiles:

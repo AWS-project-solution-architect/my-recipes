@@ -1,3 +1,4 @@
 .env
 setup-secrets.sh
 setup-secrets-*.sh
+hello-aws
