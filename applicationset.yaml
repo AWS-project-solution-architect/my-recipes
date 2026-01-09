@@ -22,10 +22,10 @@ spec:
       source:
         repoURL: https://github.com/AWS-project-solution-architect/my-recipes.git
         targetRevision: main
-        path: .  # Helm chart is at the root
+        path: my-recipes-chart
         helm:
           valueFiles:
-            - envs/{{metadata.labels.region}}.yaml
+            - ../envs/{{metadata.labels.region}}.yaml
 
       destination:
         server: "{{server}}"
