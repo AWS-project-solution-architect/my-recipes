@@ -31,6 +31,7 @@ backend:
       memory: 512Mi
   
   ingress:
+    enabled: true
     className: "alb"
     annotations:
       alb.ingress.kubernetes.io/scheme: internet-facing
@@ -70,6 +71,7 @@ frontend:
     API_BASE: "https://api-my-recipes.aws-dvirlabs.com"
   
   ingress:
+    enabled: true
     className: "alb"
     annotations:
       alb.ingress.kubernetes.io/scheme: internet-facing
@@ -96,8 +98,26 @@ postgres:
   database: recipes_db
   port: 5432
   
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 5432
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
   # If using RDS, these values are ignored but kept for reference
   persistence:
+    accessMode: ReadWriteOnce
     storageClass: "gp3"  # EKS default storage class
     size: 20Gi
 
@@ -119,9 +139,13 @@ s3:
 
 # Admin User Configuration - Using External Secrets from AWS Secrets Manager
 # All sensitive values are managed through ExternalSecret resources
-# See templates/app-secrets.yaml for the ExternalSecret configuration
-  lastName: "Admin"
-  displayName: "Dvir Admin"
+admin:
+  username: "admin"
+  email: "admin@example.com"
+  password: "admin123"  # Default password - change after first login
+  firstName: "Admin"
+  lastName: "User"
+  displayName: "Admin User"
 
 # Database connection for AWS RDS (used when postgres.enabled: false)
 database:
