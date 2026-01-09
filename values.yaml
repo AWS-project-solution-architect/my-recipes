@@ -4,12 +4,31 @@
 global:
   namespace: my-apps
 
+# AWS Configuration (default, overridden by environment files)
+aws:
+  region: eu-central-1
+
 # Backend configuration
 backend:
+  name: backend
   replicaCount: 1
   image:
     repository: 430842105273.dkr.ecr.eu-central-1.amazonaws.com/my-recipes-backend  # Update with your ECR repository
     tag: "v3"
+    pullPolicy: Always
+  
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
   
   ingress:
     className: "alb"
@@ -27,10 +46,25 @@ backend:
 
 # Frontend configuration
 frontend:
+  name: frontend
   replicaCount: 1
   image:
     repository: 430842105273.dkr.ecr.eu-central-1.amazonaws.com/my-recipes-frontend  # Update with your ECR repository
     tag: "latest"
+    pullPolicy: Always
+  
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+  
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
   
   env:
     API_BASE: "https://api-my-recipes.aws-dvirlabs.com"
@@ -53,9 +87,14 @@ frontend:
 
 # PostgreSQL configuration
 postgres:
+  name: db
   # For AWS RDS, set this to use external database
   # Leave enabled: true to use in-cluster database
   enabled: false  # Set to false if using RDS
+  
+  user: recipes_user
+  database: recipes_db
+  port: 5432
   
   # If using RDS, these values are ignored but kept for reference
   persistence:

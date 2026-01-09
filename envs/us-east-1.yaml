@@ -3,6 +3,10 @@
 global:
   namespace: my-apps
 
+# AWS Configuration
+aws:
+  region: us-east-1
+
 # Backend configuration
 backend:
   replicaCount: 2
